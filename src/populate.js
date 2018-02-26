@@ -1,16 +1,18 @@
-var Web3 = require('web3');
-const nBlocksToSearch = 250000;
+//var Web3 = require('web3');
+const getWeb3 = require('./getWeb3.js');
+const nBlocksToSearch = 10000;
 var app = require('./app');
-var blockCounter = 0;
-var txCounter = 0;
-var txTotal = 0;
 
 module.exports = async function(){
+  var blockCounter = 0;
+  var txCounter = 0;
+  var txTotal = 0;
   var startTime = new Date();
-  console.log(startTime);
+  //console.log(startTime);
   var ether_port = 'ws://localhost:8545';
-  var web3 = await new Web3(new Web3.providers.WebsocketProvider(ether_port));
-  console.log(web3);
+  //var web3 = await new Web3(new Web3.providers.WebsocketProvider(ether_port));
+  var web3 = getWeb3();
+  //console.log(web3);
   const blockchainInfo = await app.service('blockchain-info').find();
   const currentBlock = await web3.eth.getBlockNumber();
   var startBlock;
@@ -32,36 +34,20 @@ module.exports = async function(){
   // should probably grab promises then do them after instead of waiting....
   for (let i = startBlock; i < currentBlock; i++){
     //const block = await web3.eth.getBlock(i);
-    var nTransactions = 0;
-    try{
-      nTransactions = await web3.eth.getBlockTransactionCount(i);
-    } catch(error){
-      console.log('It happened');
-    }
+    const nTransactions = await web3.eth.getBlockTransactionCount(i);
 
     //const blockTransactions = block.transactions;
     blockCounter += 1;
     for (let j = 0; j < nTransactions; j++){
       //const tx = blockTransactions[j];
       //get transactions details from hash
-      var rawTX;
-      try{
-        rawTX = await web3.eth.getTransactionFromBlock(i, j);
-      } catch(error){
-        console.log(error);
-      }
+      const rawTX = await web3.eth.getTransactionFromBlock(i, j);
       //const rawTX = await web3.eth.getTransaction(tx);
       if (rawTX != undefined){
         //console.log(rawTX);
         app.service('transactions').create(rawTX);
         txTotal += 1;
         txCounter += 1;
-      } else{
-        console.log('rawTX undefined, paramters: ');
-        console.log('block number: ' + i);
-        console.log('transaction idx: ' + j);
-        // const block = await web3.eth.getBlock(i);
-        // console.log('block: ' + block);
       }
     }
     app.service('blockchain-info').update(1, {startBlock: (i + 1)});
@@ -72,6 +58,9 @@ module.exports = async function(){
     }
   }
   var endTime = new Date();
-  console.log('Up to date. ' + txTotal + ' transactions from ' + blockCounter + ' blocks added to database.');
-  console.log('Began at ' + startTime + ', ended at ' + endTime);
+  const time = (endTime - startTime) / 1000;
+  const minutes = Math.floor(time / 60);
+  const seconds = ((time / 60) - minutes);
+  console.log('Up to date. ' + txTotal + ' transactions from ' + blockCounter + ' blocks added to database in ' + minutes + 'm ' + seconds + 's');
+  //setInterval(this, 5000);
 };
